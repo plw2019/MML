@@ -1,1 +1,1 @@
-# MML
+The file includes the source code for our Paper [**"Multi-Domain Sequential Recommendation via Multi-sequence Multi-task Learning"**](https://dl.acm.org/doi/abs/10.1145/3604915.3608785). If this paper is accepted, we will release the code for preprocessing the data, the specific environment configuration and the executable script.
