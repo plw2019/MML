@@ -1,0 +1,8 @@
+{
+  "domains": [
+    "Books",
+    "CDs_and_Vinyl",
+    "Movies_and_TV"
+  ],
+  "data_path": "../Datasets/Amazon_platform"
+}
