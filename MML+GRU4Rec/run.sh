@@ -1,0 +1,2 @@
+CUDA_VISIBLE_DEVICES=0, python main.py --train_dir=default --maxlen=300 --batch_size=128 --num_epochs=1000 --device=cuda --hidden_units=50 --interval=20 --load_processed_data=true --l2_emb=0.001 --behavior_regularizer_weight=0.001 --ll_loss_weight=1.0 --lg_loss_weight=0.5 --gg_loss_weight=1.0 --num_domain_shared_blocks=0 --num_domain_specific_blocks=2 --num_blocks_mixed_seq=2  --temperature=0.5 --cls_weight=0.001  --argumentation_methods 'crop' --notes 'MML_GRU' --seed=2022 --argumentation_ratio=0.3 --saved_the_model=True
+

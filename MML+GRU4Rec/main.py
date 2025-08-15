@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+
+
 import os
 import time
 
@@ -26,8 +29,8 @@ parser.add_argument('--lr', default=0.001, type=float)
 parser.add_argument('--maxlen', default=50, type=int)
 parser.add_argument('--hidden_units', default=50, type=int)
 parser.add_argument('--num_domain_shared_blocks', default=1, type=int)
-parser.add_argument('--num_domain_specific_blocks', default=1, type=int)
-parser.add_argument('--num_blocks_mixed_seq', default=1, type=int)
+parser.add_argument('--num_domain_specific_blocks', default=1, type=int, help='the number of GRU layers in intra-domain sequential encoder in each domain')
+parser.add_argument('--num_blocks_mixed_seq', default=1, type=int, help='the number of GRU layers in hybrid-domain sequential encoder')
 parser.add_argument('--num_cross_attention_blocks', default=1, type=int)
 parser.add_argument('--num_epochs', default=201, type=int)
 parser.add_argument('--num_heads', default=1, type=int)
@@ -41,17 +44,17 @@ parser.add_argument('--top_n', default=10, type = int)
 parser.add_argument('--interval', default=50, type = int)
 parser.add_argument('--early_stop', default=1, type = int)
 parser.add_argument('--load_processed_data', required=True, type = str2bool)
-parser.add_argument('--ll_loss_weight', default=0.5, required=True, type = float) #local->local
-parser.add_argument('--gg_loss_weight', default=0.5, required=True, type = float) #global->global
-parser.add_argument('--lg_loss_weight', default=0.5, required=True, type = float) #global->global
+parser.add_argument('--ll_loss_weight', default=0.5, required=True, type = float, help='The weight of loss in Task 2')
+parser.add_argument('--gg_loss_weight', default=0.5, required=True, type = float, help='The weight of loss in Task 1')
+parser.add_argument('--lg_loss_weight', default=0.5, required=True, type = float, help='The weight of loss in Task 3')
 parser.add_argument('--behavior_regularizer_weight', default=0.1, type = float)
 parser.add_argument('--using_mask_cross_attention', default=1, type = float) # If the item in current domain, the mask operation will be done
-parser.add_argument('--saved_the_model', default=False, type = str2bool) # If the item in current domain, the mask operation will be done
+parser.add_argument('--saved_the_model', default=False, type = str2bool)
 parser.add_argument('--temperature', default=0.1, type=float)
 parser.add_argument('--cls_weight', default=0.1, type=float)
-parser.add_argument('--argumentation_ratio', default=0.2, type=float)
-parser.add_argument('--argumentation_methods', nargs='+', type=str, default=['resort','mask','data_balance'])
-parser.add_argument('--notes', default='data_imbalance8', type=str)
+parser.add_argument('--argumentation_ratio', default=0.2, type=float, help='The ratio of an data augmentation method')
+parser.add_argument('--argumentation_methods', nargs='+', type=str, default=['resort','mask','data_balance'], help='The type of an data augmentation method')
+parser.add_argument('--notes', default='MML_GRU4Rec', type=str)
 parser.add_argument('--seed', default=2020, type=int)
 
 '''
@@ -90,8 +93,8 @@ if __name__ == '__main__':
         domain_map[domain_id + 1] = domain_name
         reversed_domain_map[domain_name] = domain_id + 1
 
-    # print(domain_map)
-    # print(reversed_domain_map)
+    print(domain_map)
+    print(reversed_domain_map)
 
     hyper_parameters = vars(args)
     t_save = time.gmtime()
@@ -144,6 +147,7 @@ if __name__ == '__main__':
     sampler = WarpSampler(domain_invariant_user_train, user_set_in_all_domains, item_sets, args.argumentation_methods,
                           batch_size=args.batch_size,
                           maxlen=args.maxlen, n_workers=3, domain_popular_items=domain_popular_items, args=args)
+    # The model named MML+GRU4Rec
     model = MDR_local_global(max_user_id, max_item_id, datasets_information, args).to(args.device)  # no ReLU activation in original SASRec implementation?
 
 
@@ -182,10 +186,48 @@ if __name__ == '__main__':
 
             pdb.set_trace()
 
+    '''
+    parameters_in_this_domain = {
+            'sequence_length_in_current_domain': len_domains[domain],
+            'sequence_length_in_all_domains': len_domains['all']
+        }
+        parameters_domains[domain] = {
+                    **hyper_parameters,**parameters_in_this_domain
+        }
+    '''
     if args.inference_only:
         model.eval()
         t_test = evaluate(model, dataset, args)
-        print('test (NDCG@10: %.4f, HR@10: %.4f)' % (t_test[0], t_test[1]))
+        best_result_domains = {}
+        parameters_domains = {}
+        for domain in datasets_information['domains']:
+            best_result_domains[domain] = {}
+            print(
+                'domain:%s, test (NDCG@%d: %.4f, HR@%d: %.4f, MRR@%d: %.4f)'
+                % (domain, args.top_n, t_test[domain][0], args.top_n, t_test[domain][1],
+                   args.top_n, t_test[domain][2]))
+            best_result_domains[domain]['test_ndcg_10'] = t_test[domain][0]
+            best_result_domains[domain]['test_hr_10'] = t_test[domain][1]
+            best_result_domains[domain]['test_mrr_10'] = t_test[domain][2]
+
+            parameters_in_this_domain = {
+                'sequence_length_in_current_domain': len_domains[domain],
+                'sequence_length_in_all_domains': len_domains['all']
+            }
+            parameters_domains[domain] = {
+                **hyper_parameters, **parameters_in_this_domain
+            }
+
+        if not os.path.isdir(os.path.join(notes, 'all')):
+            os.makedirs(os.path.join(notes, 'all'))
+        with open(os.path.join(notes, 'all', '{0:}_parameters.json'.format(information)), 'w') as f:
+            json.dump(parameters_domains, f)
+
+        with open(os.path.join(notes, 'all', '{0:}_results.json'.format(information)), 'w') as f:
+            json.dump(best_result_domains, f)
+        exit(0)
+
+        #print('test (NDCG@10: %.4f, HR@10: %.4f, MRR@10: %.4f)' % (t_test[0], t_test[1], t_test[2]))
 
     # ce_criterion = torch.nn.CrossEntropyLoss()
     # https://github.com/NVIDIA/pix2pixHD/issues/9 how could an old bug appear again...
@@ -199,12 +241,12 @@ if __name__ == '__main__':
     # save the results in each domain
     best_result = {}  # record best result during training
     train_loss = [] # record the loss during the training
-    val_hr_10, val_ndcg_10, test_hr_10, test_ndcg_10 = {}, {}, {}, {}
+    val_hr_10, val_ndcg_10, val_mrr_10, test_hr_10, test_ndcg_10, test_mrr_10 = {}, {}, {}, {}, {}, {}
     # initialize the best result to 0
     for domain in datasets_information['domains']:
         best_result[domain] = 0
-        val_hr_10[domain], val_ndcg_10[domain] = 0, 0
-        test_hr_10[domain], test_ndcg_10[domain] = 0, 0
+        val_hr_10[domain], val_ndcg_10[domain], val_mrr_10[domain] = 0, 0, 0
+        test_hr_10[domain], test_ndcg_10[domain], test_mrr_10[domain] = 0, 0, 0
     sum_best_performance = 0 # the best performance
     sum_performance = 0 # the performance during test
 
@@ -335,10 +377,11 @@ if __name__ == '__main__':
             sum_performance = 0
             for domain in datasets_information['domains']:
                 sum_performance += (t_valid[domain][0] + t_valid[domain][1])
-                ans_list[domain].append([t_valid[domain][0], t_valid[domain][1]])
+                ans_list[domain].append([t_valid[domain][0], t_valid[domain][1], t_valid[domain][2]])
                 print(
-                    'domain:%s, epoch:%d, time: %f(s), valid (NDCG@%d: %.4f, HR@%d: %.4f)'
-                    % (domain, epoch, T, args.top_n, t_valid[domain][0], args.top_n, t_valid[domain][1]))
+                    'domain:%s, epoch:%d, time: %f(s), valid (NDCG@%d: %.4f, HR@%d: %.4f, MRR@%d: %.4f)'
+                    % (domain, epoch, T, args.top_n, t_valid[domain][0], args.top_n, t_valid[domain][1],
+                       args.top_n, t_valid[domain][2]))
 
                 if t_valid[domain][0] + t_valid[domain][1] > best_result[domain]:
                     flag = True
@@ -362,7 +405,7 @@ if __name__ == '__main__':
                 # update results in all domain
                 for temp_domain in datasets_information['domains']:
                     best_result[temp_domain] = t_valid[temp_domain][0] + t_valid[temp_domain][1]
-                    val_ndcg_10[temp_domain], val_hr_10[temp_domain] = t_valid[temp_domain][0], t_valid[temp_domain][1]
+                    val_ndcg_10[temp_domain], val_hr_10[temp_domain], val_mrr_10[temp_domain] = t_valid[temp_domain][0], t_valid[temp_domain][1], t_valid[temp_domain][2]
                 count = 0
                 folder = 'all'
                 fname = '{}.epoch={}.lr={}.layer={}.head={}.hidden={}.maxlen={}.pth'
@@ -389,7 +432,7 @@ if __name__ == '__main__':
     model.eval()
     t_test = evaluate(model, dataset, args)
     for temp_domain in datasets_information['domains']:
-        test_ndcg_10[temp_domain], test_hr_10[temp_domain] = t_test[temp_domain][0], t_test[temp_domain][1]
+        test_ndcg_10[temp_domain], test_hr_10[temp_domain], test_mrr_10[temp_domain] = t_test[temp_domain][0], t_test[temp_domain][1], t_test[temp_domain][2]
     # save the best results in all domain
     best_result_domains = {}
     parameters_domains = {}
@@ -398,7 +441,8 @@ if __name__ == '__main__':
     for domain in datasets_information['domains']:
 
         df = pd.DataFrame(data=ans_list[domain],
-                          columns=['val_NDCG@{0:}'.format(args.top_n), 'val_HR@{0:}'.format(args.top_n)])
+                          columns=['val_NDCG@{0:}'.format(args.top_n), 'val_HR@{0:}'.format(args.top_n),
+                                   'val_MRR@{0:}'.format(args.top_n)])
         df.to_csv(path_or_buf=os.path.join(notes, domain + '_' + args.train_dir, 'result{0:}.csv'.format(information)),
                   index=False)
         # deleting something results in errors
@@ -427,15 +471,20 @@ if __name__ == '__main__':
                 {
                     'val_ndcg_10':val_ndcg_10[domain],
                     'val_hr_10':val_hr_10[domain],
+                    'val_mrr_10':val_mrr_10[domain],
                     'test_ndcg_10':test_ndcg_10[domain],
-                    'test_hr_10':test_hr_10[domain]
+                    'test_hr_10':test_hr_10[domain],
+                    'test_mrr_10':test_mrr_10[domain]
                 },f
             )
         best_result_domains[domain] = {}
         best_result_domains[domain]['val_ndcg_10'] = val_ndcg_10[domain]
         best_result_domains[domain]['val_hr_10'] = val_hr_10[domain]
+        best_result_domains[domain]['val_mrr_10'] = val_mrr_10[domain]
         best_result_domains[domain]['test_ndcg_10'] = test_ndcg_10[domain]
         best_result_domains[domain]['test_hr_10'] = test_hr_10[domain]
+        best_result_domains[domain]['test_mrr_10'] = test_mrr_10[domain]
+
 
 
     if not os.path.isdir(os.path.join(notes, 'all')):
