@@ -1,1 +1,1 @@
-
+The datasets can be downloaded by the link (i.e., https://drive.google.com/drive/folders/14iqvO3xhXTcHgm7cP2NLL5TXTTMRRmVX?usp=drive_link). It can also be obtained by setting "load_processed_data" to False in main.py in MML+GRU4Rec, MML+SASRec and MML+Mamba4Rec.
