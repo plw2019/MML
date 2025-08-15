@@ -28,6 +28,7 @@ python process.py
 python process_dataset_later.py
 ```
 More details on data processing can be found in `Datasets/README.md`.
+
 3. To run the program, try the script given in 'run.sh' in the corresponding folder.
 ``` 
 cd MML+GRU4Rec
