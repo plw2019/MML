@@ -2,7 +2,7 @@
 
 
 ## Specific steps
-1. When the data_path and domains are changed, please modify the information of domains in config_3.json.
+1. When the data_path and domains are changed, please modify the information of domains in `config_3.json`.
 ```
 {
   "domains": [
@@ -21,4 +21,5 @@ bash search_parameters.sh
 4. Run the MML+Mamba4Rec under the optimal hyperparamters.
 ```
 bash run.sh 
+
 ```
