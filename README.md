@@ -1,6 +1,6 @@
-# MGCL
+# MML
 
-The source code for our Paper [**"Multi-Domain Sequential Recommendation via Multi-sequence  and Multi-task Learning"**](https://dl.acm.org/doi/abs/10.1145/3604915.3608785).
+The source code for our Paper [**"Multi-Domain Sequential Recommendation via Multi-sequence  and Multi-task Learning"**].
 
 
 ## Environment
