@@ -307,8 +307,8 @@ class MDR_local_global(torch.nn.Module):
 
         self.user_num = user_num
         self.item_num = item_num
-        self.domain_invariant_item_emb = torch.nn.Embedding(self.item_num+1, args.hidden_units, padding_idx=0)
-        self.domain_specific_item_emb = torch.nn.Embedding(self.item_num+1, args.hidden_units, padding_idx=0)
+        self.domain_invariant_item_emb = torch.nn.Embedding(self.item_num+2, args.hidden_units, padding_idx=0)
+        self.domain_specific_item_emb = torch.nn.Embedding(self.item_num+2, args.hidden_units, padding_idx=0)
         self.pos_emb = torch.nn.Embedding(args.maxlen+1, args.hidden_units, padding_idx=0) # TO IMPROVE
         self.datasets_information = datasets_information
         self.dev = args.device
@@ -483,6 +483,7 @@ class MDR_local_global(torch.nn.Module):
         domain_switch_behavior_embs = self.domain_invariant_item_emb(torch.LongTensor(domain_switch_behavior).to(self.dev)) # [B,num_dom, L] -> [B,num_dom,L,D]
         next_behavior_embs = self.domain_invariant_item_emb(torch.LongTensor(next_behavior).to(self.dev)) # [B,num_dom, L] -> [B,num_dom,L,D]
         regularizer_loss = self.mse(domain_switch_behavior_embs, next_behavior_embs)
+        # The loss weight of behavior regularizer is affected by batch size, maxlen and datasets. If they are changed, the optimal weight might be changed.
 
         return regularizer_loss
 
@@ -501,5 +502,7 @@ class MDR_local_global(torch.nn.Module):
 
         pos_score = torch.matmul(view1, view2.T)/ self.temperature
         score = torch.diag(F.log_softmax(pos_score, dim=1))
+        # The loss weight of contrastive loss is affected by batch size. If batch size is changed, the optimal weight might be changed.
+
         return -score.sum()
 

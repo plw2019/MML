@@ -1,3 +1,8 @@
+# The split method
+# @time:2023/10/23
+# @function: if the user's interacted sequence equals 1, the model can be trained
+# @time:2023/10/26
+# @function: the split method is adopted
 import random
 
 import pandas as pd
@@ -11,8 +16,10 @@ from tqdm import tqdm
 import os
 
 # set map domain_name into domain_id and vice versa
-domain_map = {1: "Books", 2: "CDs_and_Vinyl", 3: "Movies_and_TV"}
-reversed_domain_map = {"Books": 1, "CDs_and_Vinyl": 2, "Movies_and_TV": 3}
+# domain_map = {1: "Books", 2: "CDs_and_Vinyl", 3: "Movies_and_TV"}
+# reversed_domain_map = {"Books": 1, "CDs_and_Vinyl": 2, "Movies_and_TV": 3}
+domain_map = {}
+reversed_domain_map = {}
 
 
 # sampler for batch generation
@@ -42,7 +49,7 @@ def sample_function(domain_invariant_user_train, user_set_in_all_domains, item_s
     mask_id = 1
     for domain_id in domain_map:
         mask_id = np.max([mask_id, np.max(item_sets[domain_map[domain_id]])])
-    print('mask_id:', mask_id)
+    mask_id = mask_id + 1
     def sample():
         user = np.random.choice(user_set_in_all_domains)
 
@@ -205,7 +212,7 @@ def sample_function(domain_invariant_user_train, user_set_in_all_domains, item_s
 
         # data argumentation
         arg_seq = reconstructed_user_interacted_seq.copy()
-        mask_item = mask_id # mask item is padding item
+        mask_item = mask_id # mask item is mask id
 
         pos_single_other_domain_compress = pos * seq_domain_switch_flag  # the judge of the domain switch
 
@@ -246,7 +253,7 @@ def sample_function(domain_invariant_user_train, user_set_in_all_domains, item_s
             arg_seq = np.asarray(arg_seq, dtype=np.int32)
             arg_seq = np.flip(arg_seq) # get the reversed interacted sequence in the last step
 
-            to_be_masked = np.random.randint(0, len_arg_seq - 1, size=int(len_arg_seq * argumentation_ratio))
+            to_be_masked = np.random.randint(0, len_arg_seq, size=int(len_arg_seq * argumentation_ratio))
             # Return random integers from low (inclusive) to high (exclusive).
 
             arg_seq[to_be_masked] = mask_item
@@ -296,319 +303,12 @@ def sample_function(domain_invariant_user_train, user_set_in_all_domains, item_s
 
                 arg_seq[arg_idx] = item_id
                 arg_idx -= 1
-        elif rand_method == 'db_selected_sorted':
-            sorted_data = sorted(domain_count.items(), key=lambda x: x[1])
-
-            # get the interacted min domain
-            min_len = sorted_data[0][1]
-            interacted_matrix = None  # save the interacted matrix [num_domain, min_len]
-
-            for domain_id in each_domain_seq:
-                if domain_id == 1:
-                    # the last min_len interacted items
-                    interacted_matrix = np.array(each_domain_seq[domain_id][:min_len])[
-                                        ::-1]  # the first domain id is one
-                else:
-                    interacted_matrix = np.vstack((interacted_matrix,
-                                                   np.array(each_domain_seq[domain_id][:min_len])[
-                                                   ::-1]))  # [num_domain, min_len]
-            # shuffle the first dim
-            np.random.shuffle(interacted_matrix)
-            # mare efficiently
-            arg_seq = interacted_matrix.reshape(-1, order='F')
-            # flat as row
-            len_arg_seq = arg_seq.shape[0]
-
-            if len_arg_seq >= maxlen:
-                arg_seq = arg_seq[-maxlen:]
-            else:
-                padding = np.asarray([0] * (maxlen - len_arg_seq), dtype=np.int32)
-                arg_seq = np.concatenate((padding, arg_seq), axis=0)
-        elif rand_method == 'dbso_no_re':
-            sorted_data = sorted(domain_count.items(), key=lambda x: x[1])
-
-            # get the interacted min domain
-            min_len = sorted_data[0][1]
-            interacted_matrix = None  # save the interacted matrix [num_domain, min_len]
-
-            for domain_id in each_domain_seq:
-                if domain_id == 1:
-                    # the last min_len interacted items
-                    start_idx = np.random.randint(0, len(each_domain_seq[domain_id]) + 1 - min_len)
-                    interacted_matrix = np.array(each_domain_seq[domain_id][start_idx:min_len+start_idx])[
-                                        ::-1]  # the first domain id is one
-                else:
-                    start_idx = np.random.randint(0, len(each_domain_seq[domain_id]) + 1 - min_len)
-                    interacted_matrix = np.vstack((interacted_matrix,
-                                                   np.array(each_domain_seq[domain_id][start_idx:min_len+start_idx])[
-                                                   ::-1]))  # [num_domain, min_len]
-
-            # shuffle the first dim
-            np.random.shuffle(interacted_matrix)
-            # mare efficiently
-            arg_seq = interacted_matrix.reshape(-1, order='F')
-            # flat as row
-            len_arg_seq = arg_seq.shape[0]
-
-            if len_arg_seq >= maxlen:
-                arg_seq = arg_seq[-maxlen:]
-            else:
-                padding = np.asarray([0] * (maxlen - len_arg_seq), dtype=np.int32)
-                arg_seq = np.concatenate((padding, arg_seq), axis=0)
-        elif rand_method == 'pdbso_no_re':
-            sorted_data = sorted(domain_count.items(), key=lambda x: x[1])
-
-            # get the interacted min domain
-            min_len = sorted_data[0][1]
-            interacted_matrix = None  # save the interacted matrix [num_domain, min_len]
-            # print(min_len)
-            # print(each_domain_seq)
-
-            for domain_id in each_domain_seq:
-                if domain_id == 1:
-                    # the last min_len interacted items
-                    numbers = np.arange(0, len(each_domain_seq[domain_id]) + 1 - min_len)
-                    probabilities = np.exp(-numbers)
-                    probabilities /= np.sum(probabilities)
-                    # print(numbers)
-                    # print(probabilities)
-                    start_idx = np.random.choice(numbers, p=probabilities)
-                    interacted_matrix = np.array(each_domain_seq[domain_id][start_idx:min_len+start_idx])[
-                                        ::-1]  # the first domain id is one
-                    #print(interacted_matrix)
-                else:
-                    # the last min_len interacted items
-                    numbers = np.arange(0, len(each_domain_seq[domain_id]) + 1 - min_len)
-                    probabilities = np.exp(-numbers)
-                    probabilities /= np.sum(probabilities)
-                    start_idx = np.random.choice(numbers, p=probabilities)
-                    interacted_matrix = np.vstack((interacted_matrix,
-                                                   np.array(each_domain_seq[domain_id][start_idx:min_len+start_idx])[
-                                                   ::-1]))  # [num_domain, min_len]
-                    #print(interacted_matrix)
-            print(start_idx)
-            if start_idx == 0:
-                exit(1)
-            # shuffle the first dim
-            np.random.shuffle(interacted_matrix)
-            # mare efficiently
-            arg_seq = interacted_matrix.reshape(-1, order='F')
-            # flat as row
-            len_arg_seq = arg_seq.shape[0]
-
-            if len_arg_seq >= maxlen:
-                arg_seq = arg_seq[-maxlen:]
-            else:
-                padding = np.asarray([0] * (maxlen - len_arg_seq), dtype=np.int32)
-                arg_seq = np.concatenate((padding, arg_seq), axis=0)
-        elif rand_method == 'pdbso_no_rec':
-            flag = False
-            sorted_data = sorted(domain_count.items(), key=lambda x: x[1])
-
-            # get the interacted min domain
-            min_len = sorted_data[0][1]
-            interacted_matrix = None  # save the interacted matrix [num_domain, min_len]
-            # print(min_len)
-            # print(each_domain_seq)
-
-            for domain_id in each_domain_seq:
-                if min_len == 0:
-                    if domain_id == 1:
-                        interacted_matrix = []
-                    else:
-                        interacted_matrix = np.vstack((interacted_matrix, []))
-                    continue
-                if domain_id == 1:
-                    # the last min_len interacted items
-                    numbers = np.arange(0, len(each_domain_seq[domain_id]))
-                    probabilities = np.exp(-numbers)
-                    probabilities /= np.sum(probabilities)
-                    # print(numbers)
-                    # print(probabilities)
-                    # start_idx = np.random.choice(numbers, p=probabilities)
-                    # Select m items from L based on the calculated probabilities
-                    #print(np.sum(probabilities))
-                    selected_items = np.random.choice(each_domain_seq[domain_id], size=min_len,
-                                                      replace=False, p=probabilities)
-                    # interacted_matrix = np.array(each_domain_seq[domain_id][start_idx:min_len+start_idx])[
-                    #                     ::-1]  # the first domain id is one
-                    interacted_matrix = np.array(selected_items)[::-1]  # the first domain id is one
-                    #print(interacted_matrix)
-                else:
-                    # the last min_len interacted items
-                    numbers = np.arange(0, len(each_domain_seq[domain_id]))
-                    probabilities = np.exp(-numbers)
-                    probabilities /= np.sum(probabilities)
-                    # start_idx = np.random.choice(numbers, p=probabilities)
-                    # Select m items from L based on the calculated probabilitie
-                    #print(np.sum(probabilities))
-                    selected_items = np.random.choice(each_domain_seq[domain_id], size=min_len, replace=False,
-                                                      p=probabilities)
-                    interacted_matrix = np.vstack((interacted_matrix, selected_items[::-1]))  # [num_domain, min_len]
-                    #print(interacted_matrix)
-            # shuffle the first dim
-            np.random.shuffle(interacted_matrix)
-            # mare efficiently
-            arg_seq = interacted_matrix.reshape(-1, order='F')
-            # flat as row
-            len_arg_seq = arg_seq.shape[0]
-
-            if len_arg_seq >= maxlen:
-                arg_seq = arg_seq[-maxlen:]
-            else:
-                padding = np.asarray([0] * (maxlen - len_arg_seq), dtype=np.int32)
-                arg_seq = np.concatenate((padding, arg_seq), axis=0)
-        elif rand_method == 'shuffle_randomly':
-            sorted_data = sorted(domain_count.items(), key=lambda x: x[1])
-
-            # get the interacted min domain
-
-            min_len = sorted_data[0][1]
-            # print(min_len)
-            arg_seq = None
-            for domain_id in each_domain_seq:
-                if domain_id == 1:
-                    # the last min_len interacted items
-                    arg_seq = np.array(each_domain_seq[domain_id][:min_len])[
-                                        ::-1]  # the first domain id is one
-                else:
-                    arg_seq = np.hstack((arg_seq,
-                                                   np.array(each_domain_seq[domain_id][:min_len])[
-                                                   ::-1]))  # [num_domain, min_len]
-            # print(arg_seq)
-            # shuffle the first dim
-            np.random.shuffle(arg_seq)
-            # flat as row
-            len_arg_seq = arg_seq.shape[0]
-
-            if len_arg_seq >= maxlen:
-                arg_seq = arg_seq[-maxlen:]
-            else:
-                padding = np.asarray([0] * (maxlen - len_arg_seq), dtype=np.int32)
-                arg_seq = np.concatenate((padding, arg_seq), axis=0)
-            # print(arg_seq)
-        elif rand_method == 'selected_sorted':
-            sorted_data = sorted(domain_count.items(), key=lambda x: x[1])
-
-            # get the interacted min domain
-            max_len = sorted_data[len(domain_count) - 1][1]
-            print(max_len)
-            print(each_domain_seq)
-            interacted_matrix = None
-
-            for domain_id in each_domain_seq:
-                len_domain_seq = len(each_domain_seq[domain_id])
-                if domain_id == 1:
-                    # the last min_len interacted items
-                    if len_domain_seq < max_len:
-                        padding = np.asarray([0] * (max_len - len_domain_seq), dtype=np.int32)
-                        interacted_matrix = np.hstack((padding,np.array(each_domain_seq[domain_id])[::-1]))  # the first domain id is one
-                    else:
-                        interacted_matrix = np.array(each_domain_seq[domain_id])[::-1]  # the first domain id is one
-                else:
-                    if len_domain_seq < max_len:
-                        padding = np.asarray([0] * (max_len - len_domain_seq), dtype=np.int32)
-                        temp_interacted_matrix = np.hstack((padding,np.array(each_domain_seq[domain_id])[::-1]))
-                        interacted_matrix = np.vstack((interacted_matrix,temp_interacted_matrix)) # [num_domain, max_len]
-                    else:
-                        # the maximum length of the sequence
-                        interacted_matrix = np.vstack((interacted_matrix,
-                                                   np.array(each_domain_seq[domain_id])[::-1]))  # [num_domain, max_len]
-                #print(interacted_matrix)
-
-            # shuffle the first dim
-            np.random.shuffle(interacted_matrix)
-            # mare efficiently
-            arg_seq = interacted_matrix.reshape(-1, order='F')
-            # flat as row
-            len_arg_seq = arg_seq.shape[0]
-
-            if len_arg_seq >= maxlen:
-                arg_seq = arg_seq[-maxlen:]
-            else:
-                padding = np.asarray([0] * (maxlen - len_arg_seq), dtype=np.int32)
-                arg_seq = np.concatenate((padding, arg_seq), axis=0)
-        elif rand_method == 'popular_add':
-            #popular_add
-            sorted_data = sorted(domain_count.items(), key=lambda x: x[1])
-
-            flag = False
-            # print(sorted_data)
-            # get the interacted min domain
-            # min_domain_id = sorted_data[0][0]
-            min_domain_id = -1  # if no interacted item
-            min_len = -1
-
-            for cur_domain_id, domain_interacted_num in sorted_data:
-                if domain_interacted_num != 0:
-                    min_domain_id = cur_domain_id
-                    min_len = domain_interacted_num
-                    break
-                else:
-                    # print('=======================')
-                    flag = True
-                    continue
-
-            sorted_data = sorted(domain_count.items(), key=lambda x: x[1])
-
-            # get the interacted min domain
-            # min_len = sorted_data[0][1] # the min_len might be zero
-            interacted_matrix = None  # save the interacted matrix [num_domain, min_len]
-
-            for domain_id in each_domain_seq:
-                if domain_id == 1:
-                    # the last min_len interacted items
-                    if len(each_domain_seq[domain_id]) != 0:
-                        interacted_matrix = np.array(each_domain_seq[domain_id][:min_len])[::-1]  # the first domain id is one
-                    else:
-                        filled_items = np.random.choice(domain_popular_items[domain_map[domain_id]], min_len, replace=False) # the popular item is more than the interacted item
-                        interacted_matrix = filled_items
-                else:
-                    if len(each_domain_seq[domain_id]) != 0:
-                        interacted_matrix = np.vstack((interacted_matrix,
-                                                       np.array(each_domain_seq[domain_id][:min_len])[
-                                                       ::-1]))  # [num_domain, min_len]
-                    else:
-                        filled_items = np.random.choice(domain_popular_items[domain_map[domain_id]], min_len, replace=False)
-                        interacted_matrix = np.vstack((interacted_matrix, filled_items))  # [num_domain, min_len]
-            # shuffle the first dim
-            np.random.shuffle(interacted_matrix)
-            # mare efficiently
-            arg_seq = interacted_matrix.reshape(-1, order='F')
-            # flat as row
-            len_arg_seq = arg_seq.shape[0]
-
-            if len_arg_seq >= maxlen:
-                arg_seq = arg_seq[-maxlen:]
-            else:
-                padding = np.asarray([0] * (maxlen - len_arg_seq), dtype=np.int32)
-                arg_seq = np.concatenate((padding, arg_seq), axis=0)
 
 
 
 
 
 
-
-        if rand_method == 'pdbso_no_rec' and flag:
-            print(argumentation_methods)
-            print(rand_method)
-            print(domain_invariant_user_train[user]['seq'][:-1])
-            print(domain_invariant_user_train[user]['domain'][:-1])
-            print(seq)
-            print(arg_seq)
-            print(pos)
-            print(neg)
-            print(seq_dom)
-            print(arg_seq)
-            print(pos_dom)
-            print(seq_single_domain)
-            print(pos_single_domain_compress)
-            print(neg_single_domain_compress)
-            print(domain_invariant_user_train[user]['seq'])
-            print(domain_invariant_user_train[user]['domain'])
-            print(domain_switch_behavior)
-            print(next_behavior)
 
         # print(seq)
         # print(seq_dom)
@@ -789,6 +489,8 @@ def data_partition_save(datasets_information, args):
     for domain in datasets_information['domains']:
         unified_training_and_validation_dataset = pd.concat([unified_training_and_validation_dataset,
                                                              all_validation_datasets[domain]], axis=0)
+    unified_training_and_validation_dataset = unified_training_and_validation_dataset.sort_values(by=['timestamp'],
+                                                                                                  ascending=True, kind='mergesort')
 
     # combine training dataset, validation dataset and test dataset for getting the set
     unified_training_validation_and_test_dataset = pd.DataFrame()
@@ -797,6 +499,10 @@ def data_partition_save(datasets_information, args):
     for domain in datasets_information['domains']:
         unified_training_validation_and_test_dataset = pd.concat([unified_training_validation_and_test_dataset,
                                                                   all_test_datasets[domain]], axis=0)
+    unified_training_validation_and_test_dataset = unified_training_validation_and_test_dataset.sort_values(by=['timestamp'],
+                                                                                                  ascending=True, kind='mergesort')
+
+
     # item set should contain the items in the training dataset, the validation dataset and the test dataset
     item_set_in_all_domains = unified_training_validation_and_test_dataset.item_id.unique()
     user_set_in_all_domains = unified_training_validation_and_test_dataset.user_id.unique()
@@ -967,6 +673,7 @@ def evaluate_valid(model, dataset, args):
         NDCG = 0.0
         valid_user = 0.0
         HT = 0.0
+        MRR = 0.0
 
         # validation
         for u in tqdm(user_sets[domain], ncols=80):
@@ -1023,12 +730,13 @@ def evaluate_valid(model, dataset, args):
             if rank < args.top_n:
                 NDCG += 1 / np.log2(rank + 2)
                 HT += 1
+                MRR += 1 / (rank + 1)
             # if valid_user % 100 == 0:
             #     print('.', end="")
             #     sys.stdout.flush()
 
         # save results
-        ans_list[domain] = [NDCG / valid_user, HT / valid_user]
+        ans_list[domain] = [NDCG / valid_user, HT / valid_user, MRR / valid_user]
 
     return ans_list
 
@@ -1046,6 +754,7 @@ def evaluate(model, dataset, args):
         # initialize parameters
         NDCG = 0.0
         HT = 0.0
+        MRR = 0.0
         valid_user = 0.0
 
         for u in tqdm(user_sets[domain], ncols=80):
@@ -1104,8 +813,9 @@ def evaluate(model, dataset, args):
             if rank < args.top_n:
                 NDCG += 1 / np.log2(rank + 2)
                 HT += 1
+                MRR += 1 / (rank + 1)
         # save results
         # append[[]]
-        ans_list[domain] = [NDCG / valid_user, HT / valid_user]
+        ans_list[domain] = [NDCG / valid_user, HT / valid_user, MRR / valid_user]
 
     return ans_list
