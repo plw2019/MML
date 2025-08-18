@@ -1,8 +1,3 @@
-# The split method
-# @time:2023/10/23
-# @function: if the user's interacted sequence equals 1, the model can be trained
-# @time:2023/10/26
-# @function: the split method is adopted
 import random
 
 import pandas as pd
@@ -815,3 +810,4 @@ def evaluate(model, dataset, args):
         ans_list[domain] = [NDCG / valid_user, HT / valid_user, MRR / valid_user]
 
     return ans_list
+
