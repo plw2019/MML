@@ -42,8 +42,11 @@ bash run.sh
 ## Cite
 
 If you find this repo useful, please cite
+```
 @article{MML,
 	title={Multi-Domain Sequential Recommendation via Multi-sequence and Multi-task Learning},
+	author={Liwei Pan and Weike Pan and Zhong Ming},
 	journal={Information Processing \& Management},
 	publisher={Elsevier}
 }
+```
