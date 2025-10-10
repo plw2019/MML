@@ -196,6 +196,7 @@ if __name__ == '__main__':
         parameters_domains = {}
 
         for domain in datasets_information['domains']:
+            best_result_domains[domain] = {}
             print(
                 'domain:%s, test (NDCG@%d: %.4f, HR@%d: %.4f, MRR@%d: %.4f)'
                 % (domain, args.top_n, t_test[domain][0], args.top_n, t_test[domain][1],
@@ -516,5 +517,6 @@ if __name__ == '__main__':
 
 
     print("Done")
+
 
 
