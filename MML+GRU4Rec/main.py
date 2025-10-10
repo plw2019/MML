@@ -517,10 +517,11 @@ if __name__ == '__main__':
 
 
     for domain in datasets_information['domains']:
-    print('domain:%s, test (NDCG@%d: %.4f, HR@%d: %.4f, MRR@%d: %.4f)'
-        % (domain, args.top_n, t_test[domain][0], args.top_n, t_test[domain][1],
-           args.top_n, t_test[domain][2]))
+        print('domain:%s, test (NDCG@%d: %.4f, HR@%d: %.4f, MRR@%d: %.4f)'
+            % (domain, args.top_n, t_test[domain][0], args.top_n, t_test[domain][1],
+               args.top_n, t_test[domain][2]))
 
 
     print("Done")
+
 
