@@ -43,10 +43,14 @@ bash run.sh
 
 If you find this repo useful, please cite
 ```
-@article{MML,
-	title={Multi-Domain Sequential Recommendation via Multi-sequence and Multi-task Learning},
-	author={Liwei Pan and Weike Pan and Zhong Ming},
-	journal={Information Processing \& Management},
-	publisher={Elsevier}
+@article{pan2026multi,
+  title={Multi-domain sequential recommendation via multi-sequence and multi-task learning},
+  author={Pan, Liwei and Pan, Weike and Ming, Zhong},
+  journal={Information Processing \& Management},
+  volume={63},
+  number={2},
+  pages={104426},
+  year={2026},
+  publisher={Elsevier}
 }
 ```
